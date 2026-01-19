@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import HabitsPage from './pages/HabitsPage';
 import MealsPage from './pages/MealsPage';
@@ -7,9 +7,26 @@ import WorkoutsPage from './pages/WorkoutsPage';
 import SleepPage from './pages/SleepPage';
 import WaterPage from './pages/WaterPage';
 import ThemeToggle from './components/ThemeToggle';
-import { LayoutDashboard, CheckSquare, Utensils, Dumbbell, Moon, Droplets } from 'lucide-react';
+import AuthPage from './pages/AuthPage';
+import OnboardingPage from './pages/OnboardingPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import { useAuth } from './context/AuthContext';
+import { LayoutDashboard, CheckSquare, Utensils, Dumbbell, Moon, Droplets, LogOut } from 'lucide-react';
 
 function App() {
+  const { user, signOut } = useAuth();
+
+  if (!user) {
+    return (
+      <Router>
+        <Routes>
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="*" element={<AuthPage />} />
+        </Routes>
+      </Router>
+    );
+  }
+
   return (
     <Router>
       <div style={{ display: 'flex', minHeight: '100vh' }}>
@@ -33,16 +50,38 @@ function App() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Dashboard" />
-            <NavItem to="/habits" icon={<CheckSquare size={20} />} label="Habits" />
-            <NavItem to="/meals" icon={<Utensils size={20} />} label="Meals" />
-            <NavItem to="/workouts" icon={<Dumbbell size={20} />} label="Workouts" />
-            <NavItem to="/sleep" icon={<Moon size={20} />} label="Sleep" />
-            <NavItem to="/water" icon={<Droplets size={20} />} label="Water" />
+            <NavLink to="/" icon={<LayoutDashboard size={20} />} label="Dashboard" />
+            <NavLink to="/habits" icon={<CheckSquare size={20} />} label="Habits" />
+            <NavLink to="/meals" icon={<Utensils size={20} />} label="Meals" />
+            <NavLink to="/workouts" icon={<Dumbbell size={20} />} label="Workouts" />
+            <NavLink to="/sleep" icon={<Moon size={20} />} label="Sleep" />
+            <NavLink to="/water" icon={<Droplets size={20} />} label="Water" />
+          </div>
+
+          <div style={{ marginTop: 'auto' }}>
+            <button
+              onClick={signOut}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                width: '100%',
+                padding: '12px',
+                borderRadius: 'var(--radius-md)',
+                border: 'none',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: 'var(--accent-danger)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <LogOut size={20} />
+              <span>Sign Out</span>
+            </button>
           </div>
         </nav>
 
-        {/* Main Content */}
+        {/* Main Content Area */}
         <main style={{ flex: 1, padding: '16px' }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
@@ -51,6 +90,9 @@ function App() {
             <Route path="/workouts" element={<WorkoutsPage />} />
             <Route path="/sleep" element={<SleepPage />} />
             <Route path="/water" element={<WaterPage />} />
+            <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
       </div>
@@ -58,19 +100,19 @@ function App() {
   );
 }
 
-const NavItem = ({ to, icon, label }) => (
+const NavLink = ({ to, icon, label }) => (
   <Link to={to} style={{
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
     padding: '12px',
+    borderRadius: 'var(--radius-md)',
     color: 'var(--text-secondary)',
     textDecoration: 'none',
-    borderRadius: 'var(--radius-sm)',
-    transition: 'all 0.2s'
+    transition: 'all 0.2s ease'
   }}
     onMouseEnter={(e) => {
-      e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+      e.currentTarget.style.background = 'var(--bg-glass)';
       e.currentTarget.style.color = 'var(--text-primary)';
     }}
     onMouseLeave={(e) => {

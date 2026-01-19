@@ -1,0 +1,9 @@
+@echo off
+echo Starting HabiTrack...
+cd /d "%~dp0"
+echo Installing dependencies (just in case)...
+call npm install
+echo Starting Development Server...
+start "" "http://localhost:5173"
+call npm run dev
+pause

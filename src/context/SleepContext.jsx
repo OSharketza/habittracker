@@ -1,45 +1,87 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
+import { useAuth } from './AuthContext';
 
 const SleepContext = createContext();
 
 export const useSleep = () => useContext(SleepContext);
 
 export const SleepProvider = ({ children }) => {
-    const [sleepLogs, setSleepLogs] = useState(() => {
-        const saved = localStorage.getItem('sleepLogs');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const { user } = useAuth();
+    const [sleepLogs, setSleepLogs] = useState([]);
+    const [loading, setLoading] = useState(false);
 
+    // Keep sleep goal local for now
     const [sleepGoal, setSleepGoal] = useState(() => {
         return localStorage.getItem('sleepGoal') || 8;
     });
 
     useEffect(() => {
-        localStorage.setItem('sleepLogs', JSON.stringify(sleepLogs));
-    }, [sleepLogs]);
+        if (!user) {
+            setSleepLogs([]);
+            return;
+        }
+
+        const fetchSleepLogs = async () => {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('sleep_logs')
+                .select('*')
+                .order('date', { ascending: true });
+
+            if (error) {
+                console.error('Error fetching sleep logs:', error);
+            } else {
+                setSleepLogs(data);
+            }
+            setLoading(false);
+        };
+
+        fetchSleepLogs();
+    }, [user]);
 
     useEffect(() => {
         localStorage.setItem('sleepGoal', sleepGoal);
     }, [sleepGoal]);
 
-    const addSleepLog = (hours, quality) => {
-        const today = new Date().toISOString().split('T')[0];
-        // Check if entry exists for today and update or add new
-        const existingIndex = sleepLogs.findIndex(l => l.date === today);
+    const addSleepLog = async (hours, quality) => {
+        if (!user) return;
 
-        if (existingIndex > -1) {
-            const updatedLogs = [...sleepLogs];
-            updatedLogs[existingIndex] = { ...updatedLogs[existingIndex], hours: Number(hours), quality };
-            setSleepLogs(updatedLogs);
-        } else {
-            const newLog = {
-                id: Date.now().toString(),
-                date: today,
-                hours: Number(hours),
-                quality // 'Poor', 'Fair', 'Good', 'Excellent'
-            };
-            setSleepLogs(prev => [...prev, newLog]);
+        const today = new Date().toISOString().split('T')[0];
+
+        // Upsert logic (requires unique constraint on user_id, date)
+        const logData = {
+            user_id: user.id,
+            date: today,
+            hours: Number(hours),
+            quality
+        };
+
+        const { data, error } = await supabase
+            .from('sleep_logs')
+            .upsert(logData, { onConflict: 'user_id, date' })
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error logging sleep:', error);
+            return;
         }
+
+        // Update local state
+        setSleepLogs(prev => {
+            const todayIndex = prev.findIndex(l => l.date === today);
+            if (todayIndex > -1) {
+                const updated = [...prev];
+                updated[todayIndex] = data; // Update existing
+                return updated;
+            }
+            return [...prev, data]; // Add new
+        });
+
+        // Also update sleepGoal if it's different (optional, but keep consistent)
+        // Check if data returned is null (if error happened but not caught)
+        if (!data) return;
     };
 
     const getTodaySleep = () => {
@@ -49,7 +91,7 @@ export const SleepProvider = ({ children }) => {
 
     const getAverageSleep = () => {
         if (sleepLogs.length === 0) return 0;
-        const total = sleepLogs.reduce((acc, log) => acc + log.hours, 0);
+        const total = sleepLogs.reduce((acc, log) => acc + Number(log.hours), 0);
         return (total / sleepLogs.length).toFixed(1);
     };
 
@@ -60,7 +102,8 @@ export const SleepProvider = ({ children }) => {
             getTodaySleep,
             getAverageSleep,
             sleepGoal,
-            setSleepGoal
+            setSleepGoal,
+            loading
         }}>
             {children}
         </SleepContext.Provider>

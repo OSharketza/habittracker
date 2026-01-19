@@ -46,7 +46,7 @@ const SleepPage = () => {
                             <div className="text-muted">Past 7 Days</div>
                         </div>
                     </div>
-                    <ProgressBar value={todaySleep ? আজSleep.hours : 0} max={sleepGoal} color="var(--accent-primary)" height="12px" />
+                    <ProgressBar value={todaySleep ? todaySleep.hours : 0} max={sleepGoal} color="var(--accent-primary)" height="12px" />
                 </Card>
             </div>
 

@@ -9,20 +9,24 @@ import { SleepProvider } from './context/SleepContext'
 import { WaterProvider } from './context/WaterContext'
 import { ThemeProvider } from './context/ThemeContext'
 
+import { AuthProvider } from './context/AuthContext'
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
-      <HabitProvider>
-        <MealProvider>
-          <WorkoutProvider>
-            <SleepProvider>
-              <WaterProvider>
-                <App />
-              </WaterProvider>
-            </SleepProvider>
-          </WorkoutProvider>
-        </MealProvider>
-      </HabitProvider>
+      <AuthProvider>
+        <HabitProvider>
+          <MealProvider>
+            <WorkoutProvider>
+              <SleepProvider>
+                <WaterProvider>
+                  <App />
+                </WaterProvider>
+              </SleepProvider>
+            </WorkoutProvider>
+          </MealProvider>
+        </HabitProvider>
+      </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>,
 )

@@ -1,57 +1,55 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMeals } from '../context/MealContext';
 import AddMeal from '../features/meals/AddMeal';
 import MealList from '../features/meals/MealList';
-import Card from '../components/Card';
-import ProgressBar from '../components/ProgressBar';
+import Button from '../components/Button';
+import { List } from 'lucide-react';
+import CalorieChart from '../features/meals/CalorieChart';
 
 const MealsPage = () => {
-    const { getTodayStats, calorieGoal } = useMeals();
+    const { getTodayStats, getTodayMeals, calorieGoal } = useMeals();
     const stats = getTodayStats();
+    const [isChartOpen, setIsChartOpen] = useState(false);
 
     return (
-        <div className="container fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', marginBottom: 'var(--spacing-lg)' }}>
-                <div>
-                    <h1>Nutrition</h1>
-                    <p className="text-muted">Track your daily fuel and macros.</p>
+        <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 className="page-title">Meals & Nutrition</h2>
+                <Button variant="outline" onClick={() => setIsChartOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <List size={18} />
+                    View Calorie Chart
+                </Button>
+            </div>
+
+            <CalorieChart
+                isOpen={isChartOpen}
+                onClose={() => setIsChartOpen(false)}
+                onSelect={(item) => setIsChartOpen(false)}
+            />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+                <div className="glass-card" style={{ padding: '20px' }}>
+                    <h3 style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>Calories</h3>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#a855f7' }}>
+                        {stats.calories} <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)' }}>/ {calorieGoal}</span>
+                    </div>
+                </div>
+                <div className="glass-card" style={{ padding: '20px' }}>
+                    <h3 style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>Protein</h3>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.protein}g</div>
+                </div>
+                <div className="glass-card" style={{ padding: '20px' }}>
+                    <h3 style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>Carbs</h3>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.carbs}g</div>
+                </div>
+                <div className="glass-card" style={{ padding: '20px' }}>
+                    <h3 style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>Fat</h3>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.fat}g</div>
                 </div>
             </div>
 
-            <div className="grid-auto" style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <Card title="Calorie Intake">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                        <span style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.calories} <span style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>/ {calorieGoal}</span></span>
-                        <span style={{ color: 'var(--text-muted)' }}>kcal</span>
-                    </div>
-                    <ProgressBar value={stats.calories} max={calorieGoal} color="var(--accent-danger)" height="12px" />
-                </Card>
-
-                <Card title="Macro Breakdown">
-                    <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
-                        <div>
-                            <div style={{ color: 'var(--accent-primary)', fontWeight: 'bold', fontSize: '1.25rem' }}>{stats.protein}g</div>
-                            <div className="text-muted" style={{ fontSize: '0.85rem' }}>Protein</div>
-                        </div>
-                        <div>
-                            <div style={{ color: 'var(--accent-warning)', fontWeight: 'bold', fontSize: '1.25rem' }}>{stats.carbs}g</div>
-                            <div className="text-muted" style={{ fontSize: '0.85rem' }}>Carbs</div>
-                        </div>
-                        <div>
-                            <div style={{ color: 'var(--accent-success)', fontWeight: 'bold', fontSize: '1.25rem' }}>{stats.fat}g</div>
-                            <div className="text-muted" style={{ fontSize: '0.85rem' }}>Fat</div>
-                        </div>
-                    </div>
-                </Card>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--spacing-lg)' }}>
-                <AddMeal />
-                <div>
-                    <h3 style={{ marginBottom: '16px' }}>Today's Log</h3>
-                    <MealList />
-                </div>
-            </div>
+            <AddMeal />
+            <MealList />
         </div>
     );
 };
