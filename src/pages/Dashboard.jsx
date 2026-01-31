@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../components/Card';
 import ProgressBar from '../components/ProgressBar';
 import Button from '../components/Button';
+import InsightCard from '../components/InsightCard';
 import { CheckSquare, Droplets, Moon, Utensils, Flame, User, Edit2, X, Check } from 'lucide-react';
+import { getSmartInsight } from '../utils/insights';
 
 // Contexts
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +30,11 @@ const Dashboard = () => {
     const caloriesConsumed = getTodayStats().calories;
 
     const habitProgress = getTodayProgress().toFixed(0);
+
+    // Smart Insights
+    const smartInsight = useMemo(() => {
+        return getSmartInsight(meals, calorieGoal, habits);
+    }, [meals, calorieGoal, habits]);
 
     // Calculate Wellness Score
     // Formula: Average of % completion of all 4 pillars
@@ -103,33 +110,23 @@ const Dashboard = () => {
         }
     };
 
-    // Calculate Habit Counts for display
-    const habitsList = habits || []; // Ensure logic matches context
-    const completedHabitsCount = habitsList.filter(h => {
-        // Need to check if completed today. 
-        // Context might store completion differently. 
-        // Let's rely on calculateDailyProgress() for the % mainly.
-        // But for "X/Y" text we need counts.
-        // Assuming context exposes logic or we re-implement brief check if context is complex.
-        // Checking HabitContext... it uses `habitLogs` map.
-        // `getHabitProgress` returns { completed, total } ? No, checking context...
-        // Context exposes `habits` (list) and `habitLogs` (map).
-        // Let's use `calculateDailyProgress` for the bar.
-        // For text, let's just show percentage for now to be safe or derived.
-        return false;
-    }).length;
-
-    // Better: Helper from context? Context has `calculateDailyProgress`.
-    // Let's modify Card text to be "Daily Completion: X%" instead of counts if distinct counts are hard.
-
     return (
         <div className="container fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h1>Hello, {user?.email?.split('@')[0] || 'User'}</h1>
                 <Button variant="outline" onClick={() => setIsEditingGoals(true)} style={{ padding: '8px 12px', fontSize: '0.9rem' }}>
                     <Edit2 size={16} style={{ marginRight: '8px' }} /> Edit Goals
                 </Button>
             </div>
+
+            {/* Smart Insight */}
+            {smartInsight && (
+                <InsightCard
+                    insight={smartInsight.insight}
+                    suggestion={smartInsight.suggestion}
+                    type={smartInsight.type}
+                />
+            )}
 
             {/* Goal Editor Modal Overlay */}
             {isEditingGoals && (
@@ -170,7 +167,7 @@ const Dashboard = () => {
             )}
 
             {/* Top Stats Row */}
-            <div className="grid-auto" style={{ marginBottom: 'var(--spacing-lg)', marginTop: '20px' }}>
+            <div className="grid-auto" style={{ marginBottom: 'var(--spacing-lg)' }}>
                 <Card title="Daily Habits">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                         <span className="text-muted">Completion</span>

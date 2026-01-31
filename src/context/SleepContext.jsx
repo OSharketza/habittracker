@@ -27,6 +27,7 @@ export const SleepProvider = ({ children }) => {
             const { data, error } = await supabase
                 .from('sleep_logs')
                 .select('*')
+                .eq('user_id', user.id)
                 .order('date', { ascending: true });
 
             if (error) {

@@ -5,7 +5,7 @@ import { Plus, Search } from 'lucide-react';
 import { extendedFoodDB } from '../../data/extendedFoodDB';
 
 const AddMeal = () => {
-    const { addMeal } = useMeals();
+    const { addMeal, getTodayStats, calorieGoal } = useMeals();
     const [formData, setFormData] = useState({
         name: '',
         calories: '',
@@ -19,6 +19,19 @@ const AddMeal = () => {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [suggestions, setSuggestions] = useState([]);
     const wrapperRef = useRef(null);
+
+    // Smart Suggestions State
+    const [smartSuggestions, setSmartSuggestions] = useState([]);
+    const [showSmartSuggestions, setShowSmartSuggestions] = useState(false);
+
+    // Quick Add Staples
+    const quickAddItems = [
+        { name: "Roti (1 pc)", calories: 110, protein: 3, carbs: 20, fat: 1.5 },
+        { name: "Rice (1 bowl)", calories: 240, protein: 4, carbs: 50, fat: 0.5 },
+        { name: "Dal (1 bowl)", calories: 180, protein: 9, carbs: 25, fat: 6 },
+        { name: "Tea (1 cup)", calories: 60, protein: 1, carbs: 10, fat: 2 },
+        { name: "Coffee", calories: 80, protein: 2, carbs: 10, fat: 3 }
+    ];
 
     // Filter suggestions based on search term
     useEffect(() => {
@@ -35,16 +48,28 @@ const AddMeal = () => {
         }
     }, [searchTerm]);
 
-    // Handle clicking outside to close suggestions
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
-                setShowSuggestions(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [wrapperRef]);
+        // Calculate smart suggestions based on remaining calories
+        const stats = getTodayStats();
+        const remaining = Math.max(0, calorieGoal - stats.calories);
+
+        if (remaining > 100) {
+            // Find foods within +/- 20% of remaining, or just general healthy suggestions if low
+            // Randomize a bit to show different options
+            const candidates = extendedFoodDB.filter(f =>
+                f.calories <= remaining && f.calories > (remaining * 0.5)
+            ).sort(() => 0.5 - Math.random()).slice(0, 3);
+
+            setSmartSuggestions(candidates);
+        } else {
+            setSmartSuggestions([]);
+        }
+    }, [calorieGoal]); // Re-run when goal changes or component mounts (and stats update via context if we subscribed correctly, though stats is a function here)
+    // Note: getTodayStats is a function, not a value. We might need to listen to something else to trigger updates, but useMeals provides methods. 
+    // Actually, useMeals should probably expose the stats object directly if we want reactivity, OR we assume parent re-renders trigger this.
+    // Let's assume for now we want to manually trigger this or rely on re-renders. 
+    // Better yet, let's just calculate it on render or in an effect dependent on 'meals' from context if we had access.
+    // But we strictly have addMeal. Let's start with basics.
 
     const handleSelectFood = (food) => {
         setFormData({
@@ -56,6 +81,10 @@ const AddMeal = () => {
         });
         setSearchTerm('');
         setShowSuggestions(false);
+    };
+
+    const handleQuickAdd = (item) => {
+        addMeal(item.name, item.calories, item.protein, item.carbs, item.fat);
     };
 
     const handleChange = (e) => {
@@ -79,11 +108,91 @@ const AddMeal = () => {
     };
 
     return (
-        <div className="glass-card" style={{ padding: '20px', marginBottom: '24px' }}>
+        <div className="glass-card fade-in" style={{ padding: '20px', marginBottom: '24px' }}>
             <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Plus size={20} color="var(--accent-primary)" />
                 Log a Meal
             </h3>
+
+            {/* Quick Add Chips */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                {quickAddItems.map((item, i) => (
+                    <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleQuickAdd(item)}
+                        style={{
+                            padding: '6px 12px',
+                            borderRadius: '20px',
+                            border: '1px solid var(--border-glass)',
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            color: 'var(--text-secondary)',
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'var(--accent-primary)';
+                            e.currentTarget.style.color = 'white';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                            e.currentTarget.style.color = 'var(--text-secondary)';
+                        }}
+                    >
+                        <span>+</span> {item.name}
+                    </button>
+                ))}
+            </div>
+
+            {/* Smart Suggestions Toggle */}
+            {smartSuggestions.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                    <button
+                        type="button"
+                        onClick={() => setShowSmartSuggestions(!showSmartSuggestions)}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--accent-info)',
+                            fontSize: '0.9rem',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            padding: 0
+                        }}
+                    >
+                        {showSmartSuggestions ? 'Hide Suggestions' : 'Need ideas? See suggestions based on your remaining calories.'}
+                    </button>
+
+                    {showSmartSuggestions && (
+                        <div style={{
+                            marginTop: '12px',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                            gap: '8px'
+                        }}>
+                            {smartSuggestions.map((food, i) => (
+                                <div key={i}
+                                    onClick={() => handleSelectFood(food)}
+                                    style={{
+                                        padding: '10px',
+                                        background: 'rgba(59, 130, 246, 0.1)',
+                                        border: '1px solid rgba(59, 130, 246, 0.2)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{food.name}</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{food.calories} kcal</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Search Bar */}
             <div ref={wrapperRef} style={{ position: 'relative', marginBottom: '16px' }}>

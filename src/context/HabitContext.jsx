@@ -24,6 +24,7 @@ export const HabitProvider = ({ children }) => {
             const { data: habitsData, error: habitsError } = await supabase
                 .from('habits')
                 .select('*')
+                .eq('user_id', user.id)
                 .order('created_at', { ascending: true });
 
             if (habitsError) {
@@ -89,7 +90,8 @@ export const HabitProvider = ({ children }) => {
         const { error } = await supabase
             .from('habits')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('user_id', user.id);
 
         if (error) {
             console.error('Error removing habit:', error);

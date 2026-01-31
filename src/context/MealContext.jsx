@@ -27,6 +27,7 @@ export const MealProvider = ({ children }) => {
             const { data, error } = await supabase
                 .from('meals')
                 .select('*')
+                .eq('user_id', user.id)
                 .order('created_at', { ascending: true });
 
             if (error) {
@@ -75,7 +76,8 @@ export const MealProvider = ({ children }) => {
         const { error } = await supabase
             .from('meals')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('user_id', user.id);
 
         if (error) {
             console.error('Error removing meal:', error);

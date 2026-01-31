@@ -22,6 +22,7 @@ export const WorkoutProvider = ({ children }) => {
             const { data, error } = await supabase
                 .from('workouts')
                 .select('*')
+                .eq('user_id', user.id)
                 .order('created_at', { ascending: true });
 
             if (error) {
@@ -75,7 +76,8 @@ export const WorkoutProvider = ({ children }) => {
         const { error } = await supabase
             .from('workouts')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('user_id', user.id);
 
         if (error) {
             console.error('Error removing workout:', error);

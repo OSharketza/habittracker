@@ -10,8 +10,9 @@ import ThemeToggle from './components/ThemeToggle';
 import AuthPage from './pages/AuthPage';
 import OnboardingPage from './pages/OnboardingPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import SettingsPage from './pages/SettingsPage';
 import { useAuth } from './context/AuthContext';
-import { LayoutDashboard, CheckSquare, Utensils, Dumbbell, Moon, Droplets, LogOut } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, Utensils, Dumbbell, Moon, Droplets, LogOut, Settings } from 'lucide-react';
 
 function App() {
   const { user, signOut } = useAuth();
@@ -56,6 +57,7 @@ function App() {
             <NavLink to="/workouts" icon={<Dumbbell size={20} />} label="Workouts" />
             <NavLink to="/sleep" icon={<Moon size={20} />} label="Sleep" />
             <NavLink to="/water" icon={<Droplets size={20} />} label="Water" />
+            <NavLink to="/settings" icon={<Settings size={20} />} label="Settings" />
           </div>
 
           <div style={{ marginTop: 'auto' }}>
@@ -90,6 +92,7 @@ function App() {
             <Route path="/workouts" element={<WorkoutsPage />} />
             <Route path="/sleep" element={<SleepPage />} />
             <Route path="/water" element={<WaterPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

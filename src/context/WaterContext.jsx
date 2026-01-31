@@ -29,7 +29,8 @@ export const WaterProvider = ({ children }) => {
             const { data, error } = await supabase
                 .from('water_logs')
                 .select('amount')
-                .eq('date', today);
+                .eq('date', today)
+                .eq('user_id', user.id);
 
             if (error) {
                 console.error('Error fetching water:', error);
@@ -71,7 +72,8 @@ export const WaterProvider = ({ children }) => {
         const { error } = await supabase
             .from('water_logs')
             .delete()
-            .eq('date', today);
+            .eq('date', today)
+            .eq('user_id', user.id);
 
         if (error) {
             console.error('Error resetting water:', error);
