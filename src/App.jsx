@@ -11,6 +11,7 @@ import AuthPage from './pages/AuthPage';
 import OnboardingPage from './pages/OnboardingPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import SettingsPage from './pages/SettingsPage';
+import LandingPage from './pages/LandingPage';
 import { useAuth } from './context/AuthContext';
 import { LayoutDashboard, CheckSquare, Utensils, Dumbbell, Moon, Droplets, LogOut, Settings } from 'lucide-react';
 
@@ -21,8 +22,10 @@ function App() {
     return (
       <Router>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<AuthPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="*" element={<AuthPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     );
