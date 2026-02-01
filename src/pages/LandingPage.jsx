@@ -10,15 +10,24 @@ const LandingPage = () => {
 
     useEffect(() => {
         const logVisit = async () => {
-            // Log visit
-            await supabase.from('page_visits').insert([{ page_path: '/' }]);
+            try {
+                if (!supabase || !import.meta.env.VITE_SUPABASE_URL) {
+                    console.warn('Supabase not initialized - visitor tracking skipped');
+                    return;
+                }
+                // Log visit
+                await supabase.from('page_visits').insert([{ page_path: '/' }]);
 
-            // Fetch count
-            const { count } = await supabase
-                .from('page_visits')
-                .select('*', { count: 'exact', head: true });
+                // Fetch count
+                const { count, error } = await supabase
+                    .from('page_visits')
+                    .select('*', { count: 'exact', head: true });
 
-            setVisitCount(count || 0);
+                if (error) throw error;
+                setVisitCount(count || 0);
+            } catch (err) {
+                console.error('Error in visit tracking:', err);
+            }
         };
 
         logVisit();
