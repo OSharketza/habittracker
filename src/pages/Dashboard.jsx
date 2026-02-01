@@ -4,8 +4,9 @@ import Card from '../components/Card';
 import ProgressBar from '../components/ProgressBar';
 import Button from '../components/Button';
 import InsightCard from '../components/InsightCard';
-import { CheckSquare, Droplets, Moon, Utensils, Flame, User, Edit2, X, Check } from 'lucide-react';
+import { CheckSquare, Droplets, Moon, Utensils, Flame, User, Edit2, X, Check, Quote, AlertCircle, Sparkles, CheckCircle } from 'lucide-react';
 import { getSmartInsight } from '../utils/insights';
+import { getDailyQuote } from '../utils/quotes';
 
 // Contexts
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +29,26 @@ const Dashboard = () => {
     const todaySleep = getTodaySleep();
     const sleepHours = todaySleep ? Number(todaySleep.hours) : 0;
     const caloriesConsumed = getTodayStats().calories;
+    const dailyQuote = useMemo(() => getDailyQuote(), []);
+    const [manifestationDone, setManifestationDone] = useState(false);
+
+    useEffect(() => {
+        if (!user) return;
+        const checkManifestation = async () => {
+            const today = new Date().toISOString().split('T')[0];
+            const { data } = await supabase
+                .from('manifestations')
+                .select('id, created_at')
+                .eq('user_id', user.id)
+                .gte('created_at', `${today}T00:00:00`)
+                .lte('created_at', `${today}T23:59:59`);
+
+            if (data && data.length > 0) {
+                setManifestationDone(true);
+            }
+        };
+        checkManifestation();
+    }, [user]);
 
     const habitProgress = getTodayProgress().toFixed(0);
 
@@ -112,6 +133,41 @@ const Dashboard = () => {
 
     return (
         <div className="container fade-in">
+            {/* Daily Quote Section */}
+            <div className="glass-card" style={{ marginBottom: '24px', padding: '20px', borderLeft: '4px solid var(--accent-primary)', display: 'flex', alignItems: 'start', gap: '16px' }}>
+                <Quote size={32} style={{ color: 'var(--accent-primary)', opacity: 0.8, marginTop: '-4px' }} />
+                <div>
+                    <p style={{ fontSize: '1.2rem', fontStyle: 'italic', marginBottom: '8px', lineHeight: '1.4' }}>"{dailyQuote.text}"</p>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>— {dailyQuote.author}</span>
+                </div>
+            </div>
+
+            {/* Manifestation Reminder */}
+            {!manifestationDone && (
+                <div style={{ marginBottom: '24px' }}>
+                    <Link to="/manifestations" style={{ textDecoration: 'none' }}>
+                        <div style={{
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            color: 'var(--text-primary)',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s'
+                        }} className="hover-highlight">
+                            <Sparkles size={24} style={{ color: '#F59E0B' }} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 'bold', color: '#F59E0B' }}>Daily Manifestation Missing</div>
+                                <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>Take a moment to set your intention for today.</div>
+                            </div>
+                            <Button size="sm" variant="ghost">Start Now &rarr;</Button>
+                        </div>
+                    </Link>
+                </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h1>Hello, {user?.email?.split('@')[0] || 'User'}</h1>
                 <Button variant="outline" onClick={() => setIsEditingGoals(true)} style={{ padding: '8px 12px', fontSize: '0.9rem' }}>
@@ -184,6 +240,89 @@ const Dashboard = () => {
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Overall Balance</span>
                     </div>
                 </Card>
+            </div>
+
+            {/* Goal Status Breakdown */}
+            <h2 style={{ marginBottom: 'var(--spacing-md)' }}>Goal Status</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+                <div className="glass-card" style={{ padding: '20px' }}>
+                    <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckSquare size={18} /> Habits Status
+                    </h3>
+                    {habits.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {habits.map(habit => {
+                                const isCompleted = Boolean(habit.logs && habit.logs[new Date().toISOString().split('T')[0]]);
+                                return (
+                                    <div key={habit.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                                        <span>{habit.name}</span>
+                                        {isCompleted ? (
+                                            <span style={{ color: 'var(--accent-success)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}>
+                                                <CheckCircle size={14} /> Completed
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Pending</span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="text-muted">No habits set for today.</div>
+                    )}
+                </div>
+
+                <div className="glass-card" style={{ padding: '20px' }}>
+                    <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Target size={18} /> Daily Targets
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {/* Water Status */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Droplets size={16} className="text-info" />
+                                <span>Water Intake</span>
+                            </div>
+                            <span style={{ fontWeight: 'bold' }}>
+                                {waterIntake >= waterGoal ?
+                                    <span style={{ color: 'var(--accent-success)' }}>Goal Reached!</span> :
+                                    `${Math.round((waterIntake / waterGoal) * 100)}%`
+                                }
+                            </span>
+                        </div>
+                        <ProgressBar value={waterIntake} max={waterGoal} color="var(--accent-info)" height="6px" />
+
+                        {/* Sleep Status */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Moon size={16} className="text-primary" />
+                                <span>Sleep</span>
+                            </div>
+                            <span style={{ fontWeight: 'bold' }}>
+                                {sleepHours >= sleepGoal ?
+                                    <span style={{ color: 'var(--accent-success)' }}>Goal Reached!</span> :
+                                    `${Math.round((sleepHours / sleepGoal) * 100)}%`
+                                }
+                            </span>
+                        </div>
+                        <ProgressBar value={sleepHours} max={sleepGoal} color="var(--accent-primary)" height="6px" />
+
+                        {/* Calories Status */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Flame size={16} className="text-danger" />
+                                <span>Calories</span>
+                            </div>
+                            <span style={{ fontWeight: 'bold' }}>
+                                {caloriesConsumed >= calorieGoal ?
+                                    <span style={{ color: 'var(--accent-success)' }}>Goal Reached!</span> :
+                                    `${Math.round((caloriesConsumed / calorieGoal) * 100)}%`
+                                }
+                            </span>
+                        </div>
+                        <ProgressBar value={caloriesConsumed} max={calorieGoal} color="var(--accent-danger)" height="6px" />
+                    </div>
+                </div>
             </div>
 
             {/* Quick Actions Grid */}

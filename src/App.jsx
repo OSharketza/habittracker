@@ -13,7 +13,8 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import SettingsPage from './pages/SettingsPage';
 import LandingPage from './pages/LandingPage';
 import { useAuth } from './context/AuthContext';
-import { LayoutDashboard, CheckSquare, Utensils, Dumbbell, Moon, Droplets, LogOut, Settings } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, Utensils, Dumbbell, Moon, Droplets, LogOut, Settings, Target } from 'lucide-react';
+import ManifestationPage from './pages/ManifestationPage';
 
 function App() {
   const { user, signOut } = useAuth();
@@ -60,6 +61,7 @@ function App() {
             <NavLink to="/workouts" icon={<Dumbbell size={20} />} label="Workouts" />
             <NavLink to="/sleep" icon={<Moon size={20} />} label="Sleep" />
             <NavLink to="/water" icon={<Droplets size={20} />} label="Water" />
+            <NavLink to="/manifestations" icon={<Target size={20} />} label="Manifestations" />
             <NavLink to="/settings" icon={<Settings size={20} />} label="Settings" />
           </div>
 
@@ -95,6 +97,7 @@ function App() {
             <Route path="/workouts" element={<WorkoutsPage />} />
             <Route path="/sleep" element={<SleepPage />} />
             <Route path="/water" element={<WaterPage />} />
+            <Route path="/manifestations" element={<ManifestationPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />

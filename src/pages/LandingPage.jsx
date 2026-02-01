@@ -1,12 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, CheckCircle2, TrendingUp, Shield } from 'lucide-react';
+import { ArrowRight, CheckCircle2, TrendingUp, Shield, Users } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 const LandingPage = () => {
     const navigate = useNavigate();
     const [scrolled, setScrolled] = useState(false);
+    const [visitCount, setVisitCount] = useState(0);
 
     useEffect(() => {
+        const logVisit = async () => {
+            // Log visit
+            await supabase.from('page_visits').insert([{ page_path: '/' }]);
+
+            // Fetch count
+            const { count } = await supabase
+                .from('page_visits')
+                .select('*', { count: 'exact', head: true });
+
+            setVisitCount(count || 0);
+        };
+
+        logVisit();
+
         const handleScroll = () => {
             setScrolled(window.scrollY > 50);
         };
@@ -88,6 +104,26 @@ const LandingPage = () => {
                     pointerEvents: 'none',
                     zIndex: 0
                 }} />
+
+                {/* Visitor Count Badge */}
+                <div style={{
+                    zIndex: 2,
+                    marginBottom: '24px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(4px)',
+                    padding: '8px 16px',
+                    borderRadius: '999px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '0.9rem',
+                    color: '#94a3b8',
+                    animation: 'fadeIn 1s ease-out'
+                }}>
+                    <Users size={16} color="#60a5fa" />
+                    <span>Join {visitCount.toLocaleString()} visitors building better habits</span>
+                </div>
 
                 <h1 style={{
                     fontSize: 'clamp(3rem, 5vw, 5rem)',
