@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
-import { extendedFoodDB } from '../../data/extendedFoodDB';
+import { foodDB } from '../../data/foodDB';
 import Button from '../../components/Button';
 
 const CalorieChart = ({ isOpen, onClose, onSelect }) => {
@@ -8,7 +8,7 @@ const CalorieChart = ({ isOpen, onClose, onSelect }) => {
     const [filter, setFilter] = useState('All');
 
     const filteredData = useMemo(() => {
-        return extendedFoodDB.filter(item => {
+        return foodDB.filter(item => {
             const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.category.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesFilter = filter === 'All' ||
@@ -117,11 +117,11 @@ const CalorieChart = ({ isOpen, onClose, onSelect }) => {
                                     width: '12px',
                                     height: '12px',
                                     borderRadius: '50%',
-                                    background: item.diet === 'vegetarian' ? '#4caf50' : '#f44336',
+                                    background: item.diet === 'vegetarian' ? '#4caf50' : item.diet === 'non vegetarian' ? '#f44336' : '#94a3b8',
                                     border: '2px solid rgba(255,255,255,0.2)'
                                 }} />
                                 <h4 style={{ marginRight: '20px', marginBottom: '4px' }}>{item.name}</h4>
-                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>{item.category}</div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '12px' }}>{item.category}{item.serving ? ` | ${item.serving}` : ''}{item.source ? ` | ${item.source}` : ''}</div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.9rem' }}>
                                     <div style={{ color: 'var(--accent-warning)', fontWeight: 'bold' }}>{item.calories} kcal</div>

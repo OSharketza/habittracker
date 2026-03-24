@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
+import { useEffect } from 'react';
 
 const SettingsPage = () => {
     const { user } = useAuth();
@@ -9,6 +10,27 @@ const SettingsPage = () => {
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [profileForm, setProfileForm] = useState({ display_name: '', username: '' });
+
+    useEffect(() => {
+        const loadProfile = async () => {
+            if (!user) return;
+            const { data } = await supabase
+                .from('profiles')
+                .select('display_name, username')
+                .eq('id', user.id)
+                .single();
+
+            if (data) {
+                setProfileForm({
+                    display_name: data.display_name || '',
+                    username: data.username || ''
+                });
+            }
+        };
+
+        loadProfile();
+    }, [user]);
 
     const handleUpdatePassword = async (e) => {
         e.preventDefault();
@@ -28,11 +50,78 @@ const SettingsPage = () => {
         }
     };
 
+    const handleUpdateProfile = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        setMessage('');
+
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    display_name: profileForm.display_name || null,
+                    username: profileForm.username || null
+                })
+                .eq('id', user.id);
+            if (error) throw error;
+            setMessage('Profile updated successfully!');
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="fade-in">
             <h1 style={{ color: 'var(--text-primary)', marginBottom: '1.5rem' }}>Settings</h1>
 
             <div className="glass-panel" style={{ padding: '1.5rem', maxWidth: '500px' }}>
+                <h2 style={{ fontSize: '1.25rem', color: 'var(--accent-primary)', marginBottom: '1.5rem' }}>Public Support Profile</h2>
+
+                <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Display Name</label>
+                        <input
+                            type="text"
+                            value={profileForm.display_name}
+                            onChange={(e) => setProfileForm((prev) => ({ ...prev, display_name: e.target.value }))}
+                            placeholder="How friends will see you"
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-glass)',
+                                background: 'rgba(255,255,255,0.05)',
+                                color: 'var(--text-primary)',
+                                outline: 'none'
+                            }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Username</label>
+                        <input
+                            type="text"
+                            value={profileForm.username}
+                            onChange={(e) => setProfileForm((prev) => ({ ...prev, username: e.target.value.toLowerCase() }))}
+                            placeholder="Optional unique handle"
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-glass)',
+                                background: 'rgba(255,255,255,0.05)',
+                                color: 'var(--text-primary)',
+                                outline: 'none'
+                            }}
+                        />
+                    </div>
+                    <Button type="submit" disabled={loading}>
+                        {loading ? 'Saving...' : 'Save Support Profile'}
+                    </Button>
+                </form>
+
                 <h2 style={{ fontSize: '1.25rem', color: 'var(--accent-primary)', marginBottom: '1.5rem' }}>Account Security</h2>
 
                 <div style={{ marginBottom: '1.5rem' }}>

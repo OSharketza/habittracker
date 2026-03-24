@@ -1,0 +1,21 @@
+{
+    "mcpServers": {
+        "pinecone": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@pinecone-database/mcp"
+            ],
+            "env": {
+                "PINECONE_API_KEY": "pcsk_6Kifsk_GyUwqm4byaFuxUCnDhUNbiDMWqSGRJAjPxPbc6tFzJLXrQnVPhKkrtWdchagFGa"
+            }
+        },
+        "notebooklm": {
+            "command": "notebooklm-mcp",
+            "args": []
+        },
+        "notion": {
+            "serverUrl": "https://mcp.notion.com/sse"
+        }
+    }
+}

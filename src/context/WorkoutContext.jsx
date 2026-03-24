@@ -28,7 +28,12 @@ export const WorkoutProvider = ({ children }) => {
             if (error) {
                 console.error('Error fetching workouts:', error);
             } else {
-                setWorkouts(data);
+                // Map DB columns to frontend camelCase
+                const formattedData = data.map(item => ({
+                    ...item,
+                    caloriesBurned: item.calories_burned
+                }));
+                setWorkouts(formattedData);
             }
             setLoading(false);
         };
@@ -95,8 +100,8 @@ export const WorkoutProvider = ({ children }) => {
     const getTodayStats = () => {
         const todayWorkouts = getTodayWorkouts();
         return todayWorkouts.reduce((acc, w) => ({
-            duration: acc.duration + w.duration,
-            caloriesBurned: acc.caloriesBurned || acc.calories_burned || 0, // Handle both casing
+            duration: acc.duration + (w.duration || 0),
+            caloriesBurned: acc.caloriesBurned + (w.caloriesBurned || w.calories_burned || 0),
             count: acc.count + 1
         }), { duration: 0, caloriesBurned: 0, count: 0 });
     };

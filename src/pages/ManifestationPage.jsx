@@ -1,145 +1,188 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabaseClient';
 import Button from '../components/Button';
 import Card from '../components/Card';
-import { Send, Calendar, CheckCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { Sparkles, Send, History, Quote, Wind, Sun } from 'lucide-react';
+import ReminderSettings from '../components/ReminderSettings';
+import { useAgents } from '../agents/useAgents';
 
 const ManifestationPage = () => {
     const { user } = useAuth();
-    const [manifestation, setManifestation] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [todayManifestation, setTodayManifestation] = useState(null);
-    const [history, setHistory] = useState([]);
+    const [text, setText] = useState('');
+    const [logs, setLogs] = useState([]);
+    const [isZenMode, setIsZenMode] = useState(false);
+    const agents = useAgents();
 
     useEffect(() => {
-        if (user) {
-            fetchManifestations();
-        }
+        if (!user) return;
+        fetchLogs();
     }, [user]);
 
-    const fetchManifestations = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('manifestations')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
-
-            setHistory(data || []);
-
-            // Check if there's one for today
-            const today = new Date().toDateString();
-            const foundToday = data.find(m => new Date(m.created_at).toDateString() === today);
-            setTodayManifestation(foundToday);
-
-        } catch (error) {
-            console.error('Error fetching manifestations:', error);
-        }
+    const fetchLogs = async () => {
+        const { data } = await supabase
+            .from('manifestations')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+        if (data) setLogs(data);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!manifestation.trim()) return;
-
-        setLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('manifestations')
-                .insert([
-                    { user_id: user.id, content: manifestation }
-                ])
-                .select();
-
-            if (error) throw error;
-
-            setManifestation('');
-            fetchManifestations();
-        } catch (error) {
-            console.error('Error saving manifestation:', error);
-            alert('Failed to save manifestation');
-        } finally {
-            setLoading(false);
+        if (!text.trim()) return;
+        const { error } = await supabase.from('manifestations').insert([{ user_id: user.id, text }]);
+        if (!error) {
+            setText('');
+            fetchLogs();
+            setIsZenMode(false);
         }
     };
 
-    return (
-        <div className="container fade-in">
-            <h1 style={{ marginBottom: '24px' }}>Daily Manifestation</h1>
-
-            <div className="grid-responsive">
-                <div style={{ flex: 1 }}>
-                    <Card title="Today's Intention">
-                        {todayManifestation ? (
-                            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                                <div style={{
-                                    background: 'var(--accent-success-transparent)',
-                                    display: 'inline-flex',
-                                    padding: '16px',
-                                    borderRadius: '50%',
-                                    color: 'var(--accent-success)',
-                                    marginBottom: '16px'
-                                }}>
-                                    <CheckCircle size={48} />
-                                </div>
-                                <h3 style={{ marginBottom: '12px' }}>Manifestation Recorded!</h3>
-                                <p style={{ fontSize: '1.2rem', fontStyle: 'italic', opacity: 0.9 }}>
-                                    "{todayManifestation.content}"
-                                </p>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleSubmit}>
-                                <div style={{ marginBottom: '16px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>
-                                        What do you want to attract into your life today?
-                                    </label>
-                                    <textarea
-                                        value={manifestation}
-                                        onChange={(e) => setManifestation(e.target.value)}
-                                        placeholder="I am capable, confident, and ready to achieve my goals..."
-                                        rows={6}
-                                        style={{
-                                            width: '100%',
-                                            padding: '16px',
-                                            borderRadius: 'var(--radius-md)',
-                                            border: '1px solid var(--border-color)',
-                                            background: 'var(--bg-secondary)',
-                                            color: 'var(--text-primary)',
-                                            resize: 'vertical',
-                                            fontSize: '1.1rem'
-                                        }}
-                                    />
-                                </div>
-                                <Button type="submit" disabled={loading || !manifestation.trim()} style={{ width: '100%', justifyContent: 'center' }}>
-                                    {loading ? 'Saving...' : 'Manifest It'} <Send size={18} style={{ marginLeft: '8px' }} />
-                                </Button>
-                            </form>
-                        )}
-                    </Card>
+    if (isZenMode) {
+        return (
+            <div className="fade-in" style={{ 
+                position: 'fixed', 
+                inset: 0, 
+                background: 'linear-gradient(225deg, #0f172a 0%, #1e1b4b 100%)', 
+                zIndex: 3000, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                padding: '24px'
+            }}>
+                <button 
+                    onClick={() => setIsZenMode(false)}
+                    style={{ position: 'absolute', top: '24px', right: '24px', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}
+                >
+                    Close Zen Mode
+                </button>
+                
+                <div style={{ textAlign: 'center', maxWidth: '600px', width: '100%' }}>
+                    <div className="breathing-circle" style={{ marginBottom: '40px' }}>
+                        <Sun size={48} color="#c026d3" style={{ opacity: 0.8 }} />
+                    </div>
+                    <h2 style={{ fontSize: '2rem', fontWeight: '300', marginBottom: '40px', letterSpacing: '0.05em' }}>What do you wish to create today?</h2>
+                    
+                    <textarea
+                        autoFocus
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder="Speak it into existence..."
+                        style={{
+                            width: '100%',
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'white',
+                            fontSize: '1.5rem',
+                            textAlign: 'center',
+                            outline: 'none',
+                            minHeight: '200px',
+                            resize: 'none',
+                            fontStyle: 'italic',
+                            lineHeight: '1.6'
+                        }}
+                    />
+                    
+                    <div style={{ marginTop: '40px' }}>
+                        <Button onClick={handleSubmit} size="lg" style={{ background: 'var(--gradient-primary)', padding: '16px 40px', borderRadius: '40px' }}>
+                            Manifest <Sparkles size={18} style={{ marginLeft: '10px' }} />
+                        </Button>
+                    </div>
                 </div>
 
-                <div style={{ flex: 1 }}>
-                    <h3 style={{ marginBottom: '16px' }}>Your Journal</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {history.length > 0 ? (
-                            history.map((item) => (
-                                <div key={item.id} className="glass-card" style={{ padding: '16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                                        <Calendar size={14} />
-                                        <span>{format(new Date(item.created_at), 'PPP')}</span>
-                                    </div>
-                                    <p style={{ lineHeight: '1.5' }}>{item.content}</p>
+                <style>{`
+                    .breathing-circle {
+                        width: 120px;
+                        height: 120px;
+                        border-radius: 50%;
+                        background: rgba(192, 38, 211, 0.1);
+                        display: flex;
+                        align-items: center;
+                        justifyContent: center;
+                        animation: breathe 8s ease-in-out infinite;
+                        margin: 0 auto;
+                    }
+                    @keyframes breathe {
+                        0%, 100% { transform: scale(1); opacity: 0.5; box-shadow: 0 0 20px rgba(192, 38, 211, 0.2); }
+                        50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 60px rgba(192, 38, 211, 0.4); }
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
+    return (
+        <div className="container fade-in">
+            <div style={{ marginBottom: 'var(--spacing-xl)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                    <h1>Intention & Vision</h1>
+                    <p className="text-muted">Align your actions with your future self.</p>
+                </div>
+                <Button variant="secondary" onClick={() => setIsZenMode(true)} style={{ gap: '8px' }}>
+                    <Wind size={18} /> Zen Mode
+                </Button>
+            </div>
+
+            <div className="grid-auto">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                    <Card style={{ padding: '32px', background: 'var(--gradient-dark)', border: '1px solid rgba(192, 38, 211, 0.2)' }}>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                            <Quote size={20} color="#c026d3" /> Today's Affirmation
+                        </h3>
+                        <textarea
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            placeholder="I am becoming the version of myself that..."
+                            style={{
+                                width: '100%',
+                                padding: '20px',
+                                borderRadius: '16px',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                background: 'rgba(0,0,0,0.2)',
+                                color: 'white',
+                                fontSize: '1.1rem',
+                                minHeight: '120px',
+                                marginBottom: '20px',
+                                resize: 'none'
+                            }}
+                        />
+                        <Button onClick={handleSubmit} style={{ width: '100%', padding: '16px' }}>
+                            Log Intention <Send size={18} style={{ marginLeft: '10px' }} />
+                        </Button>
+                    </Card>
+
+                    <div>
+                        <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <History size={20} className="text-muted" /> Vision Archive
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {logs.map(log => (
+                                <div key={log.id} className="glass-card fade-in" style={{ padding: '20px', borderLeft: '4px solid #c026d3' }}>
+                                    <div style={{ fontStyle: 'italic', marginBottom: '8px', opacity: 0.9 }}>"{log.text}"</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{new Date(log.created_at).toLocaleDateString()}</div>
                                 </div>
-                            ))
-                        ) : (
-                            <div className="text-muted" style={{ textAlign: 'center', padding: '20px' }}>
-                                No manifestations yet. Start today!
-                            </div>
-                        )}
+                            ))}
+                        </div>
                     </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <Card title="Manifestation Mirror">
+                        <div style={{ fontStyle: 'italic', color: 'var(--accent-info)', marginBottom: '8px' }}>
+                            AI Reflection:
+                        </div>
+                        <p style={{ fontSize: '0.9rem', lineHeight: '1.6' }}>
+                            {agents.insights.reflectOnManifestation ? agents.insights.reflectOnManifestation(logs[0]?.text) : "Your vision is clearing..."}
+                        </p>
+                    </Card>
+                    <ReminderSettings module="manifestations" label="Intentions" />
+                    <Card title="The Science of Intention">
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                            Writing your goals down increases the likelihood of achieving them by 42%. Visualizing the process, not just the result, is the elite key to neuroplasticity.
+                        </p>
+                    </Card>
                 </div>
             </div>
         </div>

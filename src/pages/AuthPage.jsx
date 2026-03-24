@@ -18,22 +18,30 @@ const AuthPage = () => {
         setError('');
         setMessage('');
         setLoading(true);
+        console.log(`[AuthPage] Submitting ${view} request for ${email}...`);
 
         try {
             if (view === 'reset') {
+                console.log("[AuthPage] Calling resetPassword...");
                 const { error } = await resetPassword(email);
                 if (error) throw error;
                 setMessage('Check your email for the password reset link.');
+                console.log("[AuthPage] Reset email successfully requested.");
             } else if (view === 'login') {
+                console.log("[AuthPage] Calling signIn...");
                 const { error } = await signIn({ email, password });
                 if (error) throw error;
+                console.log("[AuthPage] Sign in API call successful. Should navigate soon...");
                 navigate('/');
             } else {
+                console.log("[AuthPage] Calling signUp...");
                 const { error } = await signUp({ email, password });
                 if (error) throw error;
                 setMessage('Registration successful! Check your email for verification.');
+                console.log("[AuthPage] Sign up API call successful.");
             }
         } catch (err) {
+            console.error(`[AuthPage] ${view} failure:`, err.message);
             setError(err.message);
         } finally {
             setLoading(false);

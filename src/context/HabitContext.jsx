@@ -1,155 +1,248 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from './AuthContext';
+import { buildIdentityReflection, getWeeklyIdentitySummary, suggestIdentityFromHabit } from '../utils/identity';
 
 const HabitContext = createContext();
 
 export const useHabits = () => useContext(HabitContext);
 
-export const HabitProvider = ({ children }) => {
-    const { user } = useAuth();
-    const [habits, setHabits] = useState([]);
-    const [loading, setLoading] = useState(false);
+const readMetadata = (userId) => {
+  if (!userId) return {};
 
-    // Fetch habits and their completions on mount
-    useEffect(() => {
-        if (!user) {
-            setHabits([]);
-            return;
-        }
-
-        const fetchHabits = async () => {
-            setLoading(true);
-            // Fetch user's habits
-            const { data: habitsData, error: habitsError } = await supabase
-                .from('habits')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: true });
-
-            if (habitsError) {
-                console.error('Error fetching habits:', habitsError);
-                setLoading(false);
-                return;
-            }
-
-            // Fetch completions for the visible date range (or all for simplicity now)
-            // Optimizing: fetch all completions for these habits
-            const habitIds = habitsData.map(h => h.id);
-            if (habitIds.length === 0) {
-                setHabits([]);
-                setLoading(false);
-                return;
-            }
-
-            const { data: completionsData, error: completionsError } = await supabase
-                .from('habit_completions')
-                .select('*')
-                .in('habit_id', habitIds);
-
-            if (completionsError) {
-                console.error('Error fetching completions:', completionsError);
-            }
-
-            // Merge completions into habits structure for frontend compatibility
-            // Structure: { ...habit, completedDates: ['2023-01-01', ...] }
-            const mergedHabits = habitsData.map(habit => {
-                const completedDates = completionsData
-                    .filter(c => c.habit_id === habit.id)
-                    .map(c => c.date);
-                return { ...habit, completedDates };
-            });
-
-            setHabits(mergedHabits);
-            setLoading(false);
-        };
-
-        fetchHabits();
-    }, [user]);
-
-    const addHabit = async (name, category = 'general') => {
-        if (!user) return;
-
-        // Insert into DB
-        const { data, error } = await supabase
-            .from('habits')
-            .insert([{ user_id: user.id, name, category }])
-            .select()
-            .single();
-
-        if (error) {
-            console.error('Error adding habit:', error);
-            return;
-        }
-
-        // Update local state
-        setHabits(prev => [...prev, { ...data, completedDates: [] }]);
-    };
-
-    const removeHabit = async (id) => {
-        const { error } = await supabase
-            .from('habits')
-            .delete()
-            .eq('id', id)
-            .eq('user_id', user.id);
-
-        if (error) {
-            console.error('Error removing habit:', error);
-            return;
-        }
-
-        setHabits(prev => prev.filter(h => h.id !== id));
-    };
-
-    const toggleHabit = async (id, date = new Date().toISOString().split('T')[0]) => {
-        const habitIndex = habits.findIndex(h => h.id === id);
-        if (habitIndex === -1) return;
-
-        const habit = habits[habitIndex];
-        const isCompleted = habit.completedDates.includes(date);
-
-        // Optimistic UI update
-        setHabits(prev => prev.map(h => {
-            if (h.id === id) {
-                return {
-                    ...h,
-                    completedDates: isCompleted
-                        ? h.completedDates.filter(d => d !== date)
-                        : [...h.completedDates, date]
-                };
-            }
-            return h;
-        }));
-
-        if (isCompleted) {
-            // Remove completion
-            const { error } = await supabase
-                .from('habit_completions')
-                .delete()
-                .match({ habit_id: id, date });
-
-            if (error) console.error('Error uncompleting habit:', error);
-        } else {
-            // Add completion
-            const { error } = await supabase
-                .from('habit_completions')
-                .insert([{ habit_id: id, date, user_id: user.id }]);
-
-            if (error) console.error('Error completing habit:', error);
-        }
-    };
-
-    const getTodayProgress = () => {
-        if (habits.length === 0) return 0;
-        const today = new Date().toISOString().split('T')[0];
-        const completedCount = habits.filter(h => h.completedDates.includes(today)).length;
-        return (completedCount / habits.length) * 100;
-    };
-
-    return (
-        <HabitContext.Provider value={{ habits, addHabit, removeHabit, toggleHabit, getTodayProgress, loading }}>
-            {children}
-        </HabitContext.Provider>
-    );
+  try {
+    return JSON.parse(localStorage.getItem(`habitMetadata:${userId}`) || '{}');
+  } catch (error) {
+    console.error('Error reading habit metadata:', error);
+    return {};
+  }
 };
 
+const writeMetadata = (userId, metadata) => {
+  if (!userId) return;
+  localStorage.setItem(`habitMetadata:${userId}`, JSON.stringify(metadata));
+};
+
+const mergeHabitsWithMetadata = (habitsData, completionsData, metadata) =>
+  habitsData.map((habit) => {
+    const completedDates = (completionsData || [])
+      .filter((completion) => completion.habit_id === habit.id)
+      .map((completion) => completion.date);
+    const localMeta = metadata[habit.id] || {};
+
+    return {
+      ...habit,
+      completedDates,
+      identityLabel: localMeta.identityLabel || suggestIdentityFromHabit(habit.name),
+      motivationNote: localMeta.motivationNote || '',
+      visibility: localMeta.visibility || 'private'
+    };
+  });
+
+export const HabitProvider = ({ children }) => {
+  const { user } = useAuth();
+  const [habits, setHabits] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [metadata, setMetadata] = useState({});
+
+  useEffect(() => {
+    if (!user) {
+      setHabits([]);
+      setMetadata({});
+      return;
+    }
+
+    const localMetadata = readMetadata(user.id);
+    setMetadata(localMetadata);
+
+    const fetchHabits = async () => {
+      setLoading(true);
+      const { data: habitsData, error: habitsError } = await supabase
+        .from('habits')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (habitsError) {
+        console.error('Error fetching habits:', habitsError);
+        setLoading(false);
+        return;
+      }
+
+      const habitIds = habitsData.map((habit) => habit.id);
+      if (habitIds.length === 0) {
+        setHabits([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: completionsData, error: completionsError } = await supabase
+        .from('habit_completions')
+        .select('*')
+        .in('habit_id', habitIds);
+
+      if (completionsError) {
+        console.error('Error fetching completions:', completionsError);
+      }
+
+      setHabits(mergeHabitsWithMetadata(habitsData, completionsData || [], localMetadata));
+      setLoading(false);
+    };
+
+    fetchHabits();
+  }, [user]);
+
+  const persistMetadata = (nextMetadata) => {
+    setMetadata(nextMetadata);
+    writeMetadata(user?.id, nextMetadata);
+    setHabits((prev) =>
+      prev.map((habit) => ({
+        ...habit,
+        identityLabel: nextMetadata[habit.id]?.identityLabel || habit.identityLabel || suggestIdentityFromHabit(habit.name),
+        motivationNote: nextMetadata[habit.id]?.motivationNote || '',
+        visibility: nextMetadata[habit.id]?.visibility || habit.visibility || 'private'
+      }))
+    );
+  };
+
+  const addHabit = async (name, category = 'general', options = {}) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('habits')
+      .insert([{ user_id: user.id, name, category }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding habit:', error);
+      return;
+    }
+
+    const nextMetadata = {
+      ...metadata,
+      [data.id]: {
+        identityLabel: options.identityLabel || suggestIdentityFromHabit(name),
+        motivationNote: options.motivationNote || '',
+        visibility: options.visibility || 'private'
+      }
+    };
+
+    persistMetadata(nextMetadata);
+
+    setHabits((prev) => [
+      ...prev,
+      {
+        ...data,
+        completedDates: [],
+        identityLabel: nextMetadata[data.id].identityLabel,
+        motivationNote: nextMetadata[data.id].motivationNote,
+        visibility: nextMetadata[data.id].visibility
+      }
+    ]);
+  };
+
+  const removeHabit = async (id) => {
+    const { error } = await supabase
+      .from('habits')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error removing habit:', error);
+      return;
+    }
+
+    const nextMetadata = { ...metadata };
+    delete nextMetadata[id];
+    persistMetadata(nextMetadata);
+    setHabits((prev) => prev.filter((habit) => habit.id !== id));
+  };
+
+  const updateHabitIdentity = (id, updates) => {
+    const nextMetadata = {
+      ...metadata,
+      [id]: {
+        ...(metadata[id] || {}),
+        ...updates
+      }
+    };
+
+    persistMetadata(nextMetadata);
+  };
+
+  const toggleHabit = async (id, date = new Date().toISOString().split('T')[0]) => {
+    const habitIndex = habits.findIndex((habit) => habit.id === id);
+    if (habitIndex === -1) return;
+
+    const habit = habits[habitIndex];
+    const isCompleted = habit.completedDates.includes(date);
+
+    setHabits((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        return {
+          ...item,
+          completedDates: isCompleted
+            ? item.completedDates.filter((completedDate) => completedDate !== date)
+            : [...item.completedDates, date]
+        };
+      })
+    );
+
+    if (isCompleted) {
+      const { error } = await supabase.from('habit_completions').delete().match({ habit_id: id, date });
+      if (error) console.error('Error uncompleting habit:', error);
+    } else {
+      const { error } = await supabase
+        .from('habit_completions')
+        .insert([{ habit_id: id, date, user_id: user.id }]);
+      if (error) console.error('Error completing habit:', error);
+    }
+  };
+
+  const getTodayProgress = () => {
+    if (habits.length === 0) return 0;
+    const today = new Date().toISOString().split('T')[0];
+    const completedCount = habits.filter((habit) => habit.completedDates.includes(today)).length;
+    return (completedCount / habits.length) * 100;
+  };
+
+  const getTodayCompletedCount = () => {
+    const today = new Date().toISOString().split('T')[0];
+    return habits.filter((habit) => habit.completedDates.includes(today)).length;
+  };
+
+  const weeklyIdentitySummary = useMemo(() => getWeeklyIdentitySummary(habits), [habits]);
+  const identityMomentum = useMemo(
+    () =>
+      habits.map((habit) => ({
+        habitId: habit.id,
+        habitName: habit.name,
+        identityLabel: habit.identityLabel,
+        reflection: buildIdentityReflection(habit)
+      })),
+    [habits]
+  );
+
+  return (
+    <HabitContext.Provider
+      value={{
+        habits,
+        addHabit,
+        removeHabit,
+        updateHabitIdentity,
+        toggleHabit,
+        getTodayProgress,
+        getTodayCompletedCount,
+        weeklyIdentitySummary,
+        identityMomentum,
+        loading
+      }}
+    >
+      {children}
+    </HabitContext.Provider>
+  );
+};

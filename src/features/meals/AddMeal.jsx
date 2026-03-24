@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMeals } from '../../context/MealContext';
 import Button from '../../components/Button';
 import { Plus, Search } from 'lucide-react';
-import { extendedFoodDB } from '../../data/extendedFoodDB';
+import { foodDB } from '../../data/foodDB';
 
 const AddMeal = () => {
     const { addMeal, getTodayStats, calorieGoal } = useMeals();
@@ -36,7 +36,7 @@ const AddMeal = () => {
     // Filter suggestions based on search term
     useEffect(() => {
         if (searchTerm.length > 1) {
-            const filtered = extendedFoodDB.filter(food =>
+            const filtered = foodDB.filter(food =>
                 food.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 food.category.toLowerCase().includes(searchTerm.toLowerCase())
             );
@@ -56,7 +56,7 @@ const AddMeal = () => {
         if (remaining > 100) {
             // Find foods within +/- 20% of remaining, or just general healthy suggestions if low
             // Randomize a bit to show different options
-            const candidates = extendedFoodDB.filter(f =>
+            const candidates = foodDB.filter(f =>
                 f.calories <= remaining && f.calories > (remaining * 0.5)
             ).sort(() => 0.5 - Math.random()).slice(0, 3);
 
@@ -186,7 +186,7 @@ const AddMeal = () => {
                                     }}
                                 >
                                     <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{food.name}</div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{food.calories} kcal</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{food.serving || '1 serving'} | {food.calories} kcal | P {food.protein}g | C {food.carbs}g | F {food.fat}g</div>
                                 </div>
                             ))}
                         </div>
@@ -200,7 +200,7 @@ const AddMeal = () => {
                     <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                     <input
                         type="text"
-                        placeholder="Search Indian foods (e.g. Dosa, Paneer)..."
+                        placeholder="Search Indian foods (e.g. dal, poha, paneer)..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         onFocus={() => searchTerm.length > 1 && setShowSuggestions(true)}
@@ -249,7 +249,7 @@ const AddMeal = () => {
                             >
                                 <div>
                                     <div style={{ fontWeight: '500' }}>{food.name}</div>
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{food.category}</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{food.category}{food.serving ? ` | ${food.serving}` : ''}{food.source ? ` | ${food.source}` : ''}</div>
                                 </div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--accent-warning)' }}>
                                     {food.calories} kcal

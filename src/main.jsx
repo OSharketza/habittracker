@@ -8,24 +8,29 @@ import { WorkoutProvider } from './context/WorkoutContext'
 import { SleepProvider } from './context/SleepContext'
 import { WaterProvider } from './context/WaterContext'
 import { ThemeProvider } from './context/ThemeContext'
-
 import { AuthProvider } from './context/AuthContext'
+import { ReminderProvider } from './context/ReminderContext'
+import { AccountabilityProvider } from './context/AccountabilityContext'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider>
-        <HabitProvider>
-          <MealProvider>
-            <WorkoutProvider>
-              <SleepProvider>
-                <WaterProvider>
-                  <App />
-                </WaterProvider>
-              </SleepProvider>
-            </WorkoutProvider>
-          </MealProvider>
-        </HabitProvider>
+        <AccountabilityProvider>
+          <HabitProvider>
+            <MealProvider>
+              <WorkoutProvider>
+                <SleepProvider>
+                  <WaterProvider>
+                    <ReminderProvider>
+                      <App />
+                    </ReminderProvider>
+                  </WaterProvider>
+                </SleepProvider>
+              </WorkoutProvider>
+            </MealProvider>
+          </HabitProvider>
+        </AccountabilityProvider>
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>,

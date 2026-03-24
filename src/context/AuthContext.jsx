@@ -13,11 +13,13 @@ export const AuthProvider = ({ children }) => {
         // Check active sessions and sets the user
         const getSession = async () => {
             try {
+                console.log("[AuthContext] Fetching active session...");
                 const { data: { session }, error } = await supabase.auth.getSession();
                 if (error) throw error;
+                console.log("[AuthContext] Session fetch result:", session ? "User found: " + session.user.email : "No session found");
                 setUser(session?.user ?? null);
             } catch (error) {
-                console.error("Auth session error:", error.message);
+                console.error("[AuthContext] Initial session fetch error:", error.message);
                 setUser(null);
             } finally {
                 setLoading(false);
@@ -28,6 +30,7 @@ export const AuthProvider = ({ children }) => {
 
         // Listen for changes on auth state (logged in, signed out, etc.)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            console.log("[AuthContext] Auth event fired:", _event, session ? "Session active" : "No session");
             setUser(session?.user ?? null);
             setLoading(false);
         });

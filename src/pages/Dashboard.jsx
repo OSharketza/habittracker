@@ -1,396 +1,323 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../components/Card';
-import ProgressBar from '../components/ProgressBar';
 import Button from '../components/Button';
-import InsightCard from '../components/InsightCard';
-import { CheckSquare, Droplets, Moon, Utensils, Flame, User, Edit2, X, Check, Quote, AlertCircle, Sparkles, CheckCircle } from 'lucide-react';
-import { getSmartInsight } from '../utils/insights';
+import TrendSparkline from '../components/TrendSparkline';
+import { triggerPerfectDayConfetti } from '../utils/celebration';
+import { useAgents } from '../agents/useAgents';
+import { CheckSquare, Droplets, Utensils, Sparkles, CheckCircle, TrendingUp, Users, HeartHandshake, Zap } from 'lucide-react';
 import { getDailyQuote } from '../utils/quotes';
-
-// Contexts
 import { useAuth } from '../context/AuthContext';
 import { useHabits } from '../context/HabitContext';
 import { useMeals } from '../context/MealContext';
 import { useWater } from '../context/WaterContext';
 import { useSleep } from '../context/SleepContext';
+import { useAccountability } from '../context/AccountabilityContext';
 import { supabase } from '../supabaseClient';
 
 const Dashboard = () => {
-    const { user } = useAuth();
+  const { user } = useAuth();
+  const { habits, getTodayProgress, weeklyIdentitySummary, identityMomentum } = useHabits();
+  const { getTodayStats, calorieGoal, setCalorieGoal } = useMeals();
+  const { waterIntake, waterGoal, setWaterGoal } = useWater();
+  const { getTodaySleep, sleepGoal, setSleepGoal } = useSleep();
+  const { schemaReady, incomingInvites, members, habitsById, profiles } = useAccountability();
+  const agents = useAgents();
 
-    // Consuming Contexts
-    const { habits, getHabitProgress, getTodayProgress } = useHabits();
-    const { meals, getTodayStats, calorieGoal, setCalorieGoal } = useMeals();
-    const { waterIntake, waterGoal, setWaterGoal } = useWater();
-    const { getTodaySleep, getAverageSleep, sleepGoal, setSleepGoal } = useSleep();
+  const todaySleep = getTodaySleep();
+  const sleepHours = todaySleep ? Number(todaySleep.hours) : 0;
+  const caloriesConsumed = getTodayStats().calories;
+  const dailyQuote = useMemo(() => getDailyQuote(), []);
+  const [manifestationDone, setManifestationDone] = useState(false);
 
-    // Derived State
-    const todaySleep = getTodaySleep();
-    const sleepHours = todaySleep ? Number(todaySleep.hours) : 0;
-    const caloriesConsumed = getTodayStats().calories;
-    const dailyQuote = useMemo(() => getDailyQuote(), []);
-    const [manifestationDone, setManifestationDone] = useState(false);
+  const mockTrends = {
+    habits: [60, 80, 75, 90, 100, 85, 95],
+    water: [1200, 1500, 1800, 2000, 1800, 2100, 2300],
+    sleep: [6, 7, 7.5, 6, 8, 7.2, 7.5],
+    calories: [1800, 2100, 1900, 2200, 2050, 1950, 2000]
+  };
 
-    useEffect(() => {
-        if (!user) return;
-        const checkManifestation = async () => {
-            const today = new Date().toISOString().split('T')[0];
-            const { data } = await supabase
-                .from('manifestations')
-                .select('id, created_at')
-                .eq('user_id', user.id)
-                .gte('created_at', `${today}T00:00:00`)
-                .lte('created_at', `${today}T23:59:59`);
-
-            if (data && data.length > 0) {
-                setManifestationDone(true);
-            }
-        };
-        checkManifestation();
-    }, [user]);
-
-    const habitProgress = getTodayProgress().toFixed(0);
-
-    // Smart Insights
-    const smartInsight = useMemo(() => {
-        return getSmartInsight(meals, calorieGoal, habits);
-    }, [meals, calorieGoal, habits]);
-
-    // Calculate Wellness Score
-    // Formula: Average of % completion of all 4 pillars
-    const activeScore = () => {
-        let scores = [];
-
-        // Habits %
-        scores.push(habitProgress);
-
-        // Water % (cap at 100)
-        const waterPct = Math.min((waterIntake / waterGoal) * 100, 100);
-        scores.push(waterPct);
-
-        // Sleep % (cap at 100)
-        const sleepPct = Math.min((sleepHours / sleepGoal) * 100, 100);
-        scores.push(sleepPct);
-
-        // Calories % (cap at 100, maybe penalize overeating later? for now just progress)
-        const calPct = Math.min((caloriesConsumed / calorieGoal) * 100, 100);
-        scores.push(calPct);
-
-        const total = scores.reduce((a, b) => a + (isNaN(b) ? 0 : b), 0);
-        return Math.round(total / scores.length) || 0;
+  useEffect(() => {
+    if (!user) return;
+    const checkManifestation = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const { data } = await supabase
+        .from('manifestations')
+        .select('id')
+        .eq('user_id', user.id)
+        .gte('created_at', `${today}T00:00:00`);
+      if (data?.length > 0) setManifestationDone(true);
     };
+    checkManifestation();
+  }, [user]);
 
-    const wellnessScore = activeScore();
+  const habitProgress = Number(getTodayProgress().toFixed(0));
 
-    // Goal Editing State
-    const [isEditingGoals, setIsEditingGoals] = useState(false);
-    const [tempGoals, setTempGoals] = useState({
-        calories: calorieGoal,
-        water: waterGoal,
-        sleep: sleepGoal
-    });
+  const wellnessScore = useMemo(() => {
+    const scores = [
+      habitProgress,
+      Math.min((waterIntake / waterGoal) * 100, 100),
+      Math.min((sleepHours / sleepGoal) * 100, 100),
+      Math.min((caloriesConsumed / calorieGoal) * 100, 100)
+    ];
+    return Math.round(scores.reduce((a, b) => a + b, 0) / 4) || 0;
+  }, [habitProgress, waterIntake, waterGoal, sleepHours, sleepGoal, caloriesConsumed, calorieGoal]);
 
-    useEffect(() => {
-        if (isEditingGoals) {
-            setTempGoals({
-                calories: calorieGoal,
-                water: waterGoal,
-                sleep: sleepGoal
-            });
-        }
-    }, [isEditingGoals, calorieGoal, waterGoal, sleepGoal]);
+  useEffect(() => {
+    if (wellnessScore === 100) {
+      triggerPerfectDayConfetti();
+    }
+  }, [wellnessScore]);
 
-    const handleGoalChange = (e) => {
-        setTempGoals({ ...tempGoals, [e.target.name]: e.target.value });
-    };
+  const [isEditingGoals, setIsEditingGoals] = useState(false);
+  const [tempGoals, setTempGoals] = useState({ calories: calorieGoal, water: waterGoal, sleep: sleepGoal });
 
-    const saveGoals = async () => {
-        try {
-            // Update Contexts
-            setCalorieGoal(Number(tempGoals.calories));
-            setWaterGoal(Number(tempGoals.water));
-            setSleepGoal(Number(tempGoals.sleep));
+  const handleGoalChange = (event) => setTempGoals({ ...tempGoals, [event.target.name]: event.target.value });
 
-            // Update Supabase Profiles
-            const { error } = await supabase
-                .from('profiles')
-                .update({
-                    daily_calorie_target: tempGoals.calories,
-                    daily_water_target: tempGoals.water,
-                    daily_sleep_target: tempGoals.sleep
-                })
-                .eq('id', user.id);
+  const saveGoals = async () => {
+    setCalorieGoal(Number(tempGoals.calories));
+    setWaterGoal(Number(tempGoals.water));
+    setSleepGoal(Number(tempGoals.sleep));
+    await supabase
+      .from('profiles')
+      .update({
+        daily_calorie_target: tempGoals.calories,
+        daily_water_target: tempGoals.water,
+        daily_sleep_target: tempGoals.sleep
+      })
+      .eq('id', user.id);
+    setIsEditingGoals(false);
+  };
 
-            if (error) throw error;
-            setIsEditingGoals(false);
+  const topIdentity = weeklyIdentitySummary[0];
+  const identityReflections = identityMomentum.slice(0, 3);
+  const supportPulse = members
+    .filter((member) => member.user_id === user?.id)
+    .slice(0, 2);
 
-        } catch (error) {
-            console.error('Error saving goals:', error);
-            alert('Failed to save goals.');
-        }
-    };
-
-    return (
-        <div className="container fade-in">
-            {/* Daily Quote Section */}
-            <div className="glass-card" style={{ marginBottom: '24px', padding: '20px', borderLeft: '4px solid var(--accent-primary)', display: 'flex', alignItems: 'start', gap: '16px' }}>
-                <Quote size={32} style={{ color: 'var(--accent-primary)', opacity: 0.8, marginTop: '-4px' }} />
-                <div>
-                    <p style={{ fontSize: '1.2rem', fontStyle: 'italic', marginBottom: '8px', lineHeight: '1.4' }}>"{dailyQuote.text}"</p>
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>— {dailyQuote.author}</span>
-                </div>
-            </div>
-
-            {/* Manifestation Reminder */}
-            {!manifestationDone && (
-                <div style={{ marginBottom: '24px' }}>
-                    <Link to="/manifestations" style={{ textDecoration: 'none' }}>
-                        <div style={{
-                            background: 'rgba(245, 158, 11, 0.15)',
-                            border: '1px solid rgba(245, 158, 11, 0.3)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '16px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            transition: 'background 0.2s'
-                        }} className="hover-highlight">
-                            <Sparkles size={24} style={{ color: '#F59E0B' }} />
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 'bold', color: '#F59E0B' }}>Daily Manifestation Missing</div>
-                                <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>Take a moment to set your intention for today.</div>
-                            </div>
-                            <Button size="sm" variant="ghost">Start Now &rarr;</Button>
-                        </div>
-                    </Link>
-                </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h1>Hello, {user?.email?.split('@')[0] || 'User'}</h1>
-                <Button variant="outline" onClick={() => setIsEditingGoals(true)} style={{ padding: '8px 12px', fontSize: '0.9rem' }}>
-                    <Edit2 size={16} style={{ marginRight: '8px' }} /> Edit Goals
-                </Button>
-            </div>
-
-            {/* Smart Insight */}
-            {smartInsight && (
-                <InsightCard
-                    insight={smartInsight.insight}
-                    suggestion={smartInsight.suggestion}
-                    type={smartInsight.type}
-                />
-            )}
-
-            {/* Goal Editor Modal Overlay */}
-            {isEditingGoals && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)',
-                    zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}>
-                    <div className="glass-card fade-in" style={{ width: '90%', maxWidth: '400px', padding: '24px', border: '1px solid var(--accent-primary)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                            <h3>Edit Daily Goals</h3>
-                            <button onClick={() => setIsEditingGoals(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}><X size={20} /></button>
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--accent-danger)' }}>Calories (kcal)</label>
-                                <input type="number" name="calories" value={tempGoals.calories} onChange={handleGoalChange}
-                                    style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: 'none', borderRadius: '8px', color: 'white' }} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--accent-info)' }}>Water (ml)</label>
-                                <input type="number" name="water" value={tempGoals.water} onChange={handleGoalChange}
-                                    style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: 'none', borderRadius: '8px', color: 'white' }} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--accent-primary)' }}>Sleep (hours)</label>
-                                <input type="number" name="sleep" value={tempGoals.sleep} onChange={handleGoalChange}
-                                    style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: 'none', borderRadius: '8px', color: 'white' }} />
-                            </div>
-
-                            <Button onClick={saveGoals} style={{ marginTop: '12px', background: 'var(--accent-success)' }}>
-                                Save Changes <Check size={16} style={{ marginLeft: '8px' }} />
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Top Stats Row */}
-            <div className="grid-auto" style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <Card title="Daily Habits">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span className="text-muted">Completion</span>
-                        <span style={{ fontWeight: 'bold', fontSize: '1.25rem' }}>{habitProgress}%</span>
-                    </div>
-                    <ProgressBar value={habitProgress} max={100} color="var(--accent-success)" />
-                </Card>
-
-                <Card title="Wellness Score">
-                    <div className="flex-center" style={{ height: '100%', minHeight: '60px', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '2.5rem', fontWeight: 'bold', background: 'var(--gradient-main)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                            {wellnessScore}%
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Overall Balance</span>
-                    </div>
-                </Card>
-            </div>
-
-            {/* Goal Status Breakdown */}
-            <h2 style={{ marginBottom: 'var(--spacing-md)' }}>Goal Status</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-                <div className="glass-card" style={{ padding: '20px' }}>
-                    <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <CheckSquare size={18} /> Habits Status
-                    </h3>
-                    {habits.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {habits.map(habit => {
-                                const isCompleted = Boolean(habit.logs && habit.logs[new Date().toISOString().split('T')[0]]);
-                                return (
-                                    <div key={habit.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                                        <span>{habit.name}</span>
-                                        {isCompleted ? (
-                                            <span style={{ color: 'var(--accent-success)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}>
-                                                <CheckCircle size={14} /> Completed
-                                            </span>
-                                        ) : (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Pending</span>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className="text-muted">No habits set for today.</div>
-                    )}
-                </div>
-
-                <div className="glass-card" style={{ padding: '20px' }}>
-                    <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Target size={18} /> Daily Targets
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {/* Water Status */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Droplets size={16} className="text-info" />
-                                <span>Water Intake</span>
-                            </div>
-                            <span style={{ fontWeight: 'bold' }}>
-                                {waterIntake >= waterGoal ?
-                                    <span style={{ color: 'var(--accent-success)' }}>Goal Reached!</span> :
-                                    `${Math.round((waterIntake / waterGoal) * 100)}%`
-                                }
-                            </span>
-                        </div>
-                        <ProgressBar value={waterIntake} max={waterGoal} color="var(--accent-info)" height="6px" />
-
-                        {/* Sleep Status */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Moon size={16} className="text-primary" />
-                                <span>Sleep</span>
-                            </div>
-                            <span style={{ fontWeight: 'bold' }}>
-                                {sleepHours >= sleepGoal ?
-                                    <span style={{ color: 'var(--accent-success)' }}>Goal Reached!</span> :
-                                    `${Math.round((sleepHours / sleepGoal) * 100)}%`
-                                }
-                            </span>
-                        </div>
-                        <ProgressBar value={sleepHours} max={sleepGoal} color="var(--accent-primary)" height="6px" />
-
-                        {/* Calories Status */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Flame size={16} className="text-danger" />
-                                <span>Calories</span>
-                            </div>
-                            <span style={{ fontWeight: 'bold' }}>
-                                {caloriesConsumed >= calorieGoal ?
-                                    <span style={{ color: 'var(--accent-success)' }}>Goal Reached!</span> :
-                                    `${Math.round((caloriesConsumed / calorieGoal) * 100)}%`
-                                }
-                            </span>
-                        </div>
-                        <ProgressBar value={caloriesConsumed} max={calorieGoal} color="var(--accent-danger)" height="6px" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Quick Actions Grid */}
-            <h2 style={{ marginBottom: 'var(--spacing-md)' }}>At a Glance</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
-
-                {/* Water Widget */}
-                <Link to="/water" className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ background: 'rgba(6, 182, 212, 0.2)', padding: '8px', borderRadius: '12px', color: 'var(--accent-info)' }}>
-                            <Droplets size={24} />
-                        </div>
-                        <span className="text-muted">Water</span>
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{waterIntake}ml</div>
-                        <div className="text-muted" style={{ fontSize: '0.875rem' }}>of {waterGoal}ml goal</div>
-                    </div>
-                    <ProgressBar value={waterIntake} max={waterGoal} color="var(--accent-info)" height="6px" />
-                </Link>
-
-                {/* Sleep Widget */}
-                <Link to="/sleep" className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ background: 'rgba(124, 58, 237, 0.2)', padding: '8px', borderRadius: '12px', color: 'var(--accent-primary)' }}>
-                            <Moon size={24} />
-                        </div>
-                        <span className="text-muted">Sleep</span>
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{sleepHours}h</div>
-                        <div className="text-muted" style={{ fontSize: '0.875rem' }}>of {sleepGoal}h goal</div>
-                    </div>
-                    <ProgressBar value={sleepHours} max={sleepGoal} color="var(--accent-primary)" height="6px" />
-                </Link>
-
-                {/* Calories Widget */}
-                <Link to="/meals" className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '8px', borderRadius: '12px', color: 'var(--accent-danger)' }}>
-                            <Flame size={24} />
-                        </div>
-                        <span className="text-muted">Calories</span>
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{caloriesConsumed}</div>
-                        <div className="text-muted" style={{ fontSize: '0.875rem' }}>of {calorieGoal} kcal</div>
-                    </div>
-                    <ProgressBar value={caloriesConsumed} max={calorieGoal} color="var(--accent-danger)" height="6px" />
-                </Link>
-
-                {/* Profile Widget */}
-                <Link to="/onboarding" className="glass-card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', cursor: 'pointer', textDecoration: 'none', color: 'inherit', transition: 'transform 0.2s' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ background: 'rgba(255, 255, 255, 0.1)', padding: '8px', borderRadius: '12px' }}>
-                            <User size={24} />
-                        </div>
-                        <span className="text-muted">Profile</span>
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>My Plan</div>
-                        <div className="text-muted" style={{ fontSize: '0.875rem' }}>Goals & Bio</div>
-                    </div>
-                </Link>
-
-            </div>
+  return (
+    <div className="container fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', gap: '16px', flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 'clamp(1.8rem, 5vw, 2.5rem)', fontWeight: '800', marginBottom: '4px' }}>
+            Peak Performance
+          </h1>
+          <p className="text-muted">Welcome back, {user?.email?.split('@')[0]}</p>
         </div>
-    );
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>DAILY SCORE</div>
+          <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--accent-primary)' }}>{wellnessScore}%</div>
+        </div>
+      </div>
+
+      <div className="glass-panel" style={{ padding: '32px', marginBottom: '32px', display: 'flex', flexWrap: 'wrap', gap: '32px', alignItems: 'center', justifyContent: 'center', background: 'var(--gradient-dark)', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
+        <div style={{ position: 'relative', width: '200px', height: '200px' }}>
+          <svg width="200" height="200" viewBox="0 0 200 200" style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx="100" cy="100" r="85" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="15" />
+            <circle
+              cx="100"
+              cy="100"
+              r="85"
+              fill="none"
+              stroke="url(#blue-gradient)"
+              strokeWidth="15"
+              strokeDasharray={`${(wellnessScore / 100) * 534} 534`}
+              strokeLinecap="round"
+              style={{ transition: 'stroke-dasharray 1s ease' }}
+            />
+            <defs>
+              <linearGradient id="blue-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#7c3aed" />
+                <stop offset="100%" stopColor="#c026d3" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: '3rem', fontWeight: '900' }}>{wellnessScore}</span>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>INDEX</span>
+          </div>
+        </div>
+        <div style={{ flex: 1, minWidth: '280px' }}>
+          <h3>AI Insights</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+            {agents.insights.trend} {agents.motivation.spark}
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <StatItem label="Habits" val={`${habitProgress}%`} trend={mockTrends.habits} color="#10b981" />
+            <StatItem label="Water" val={`${waterIntake}ml`} trend={mockTrends.water} color="#06b6d4" />
+            <StatItem label="Sleep" val={`${sleepHours}h`} trend={mockTrends.sleep} color="#7c3aed" />
+            <StatItem label="Fuel" val={caloriesConsumed} trend={mockTrends.calories} color="#ef4444" />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+        <Link to="/habits" className="glass-card hover-highlight" style={quickLinkStyle}>
+          <CheckSquare size={20} color="#10b981" style={{ marginBottom: '8px' }} />
+          <div style={{ fontSize: '0.85rem' }}>Log Habit</div>
+        </Link>
+        <Link to="/water" className="glass-card hover-highlight" style={quickLinkStyle}>
+          <Droplets size={20} color="#06b6d4" style={{ marginBottom: '8px' }} />
+          <div style={{ fontSize: '0.85rem' }}>+ Water</div>
+        </Link>
+        <Link to="/meals" className="glass-card hover-highlight" style={quickLinkStyle}>
+          <Utensils size={20} color="#f59e0b" style={{ marginBottom: '8px' }} />
+          <div style={{ fontSize: '0.85rem' }}>Add Meal</div>
+        </Link>
+        <Link to="/manifestations" className="glass-card hover-highlight" style={quickLinkStyle}>
+          <Sparkles size={20} color="#c026d3" style={{ marginBottom: '8px' }} />
+          <div style={{ fontSize: '0.85rem' }}>Manifest</div>
+        </Link>
+      </div>
+
+      <div className="grid-auto">
+        <Card title="Identity Momentum">
+          {topIdentity ? (
+            <div style={{ display: 'grid', gap: '12px' }}>
+              <div className="glass-card" style={{ padding: '16px' }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '6px' }}>You are becoming</div>
+                <div style={{ fontWeight: '800', fontSize: '1.2rem', marginBottom: '6px' }}>{topIdentity.identityLabel}</div>
+                <div style={{ color: 'var(--text-secondary)' }}>
+                  {topIdentity.completionsThisWeek} completions this week from {topIdentity.habitName}.
+                </div>
+              </div>
+              {identityReflections.map((item) => (
+                <div key={item.habitId} style={{ padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)' }}>
+                  <div style={{ fontWeight: '700', marginBottom: '4px' }}>{item.identityLabel}</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{item.reflection}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-muted)' }}>Create a habit identity on the Habits page to start getting reflections here.</div>
+          )}
+        </Card>
+
+        <Card title="Support Pulse">
+          {schemaReady && (incomingInvites.length > 0 || supportPulse.length > 0) ? (
+            <div style={{ display: 'grid', gap: '12px' }}>
+              {incomingInvites.slice(0, 2).map((invite) => {
+                const habit = habitsById[invite.habit_id];
+                const inviter = profiles[invite.inviter_user_id];
+                return (
+                  <div key={invite.id} className="glass-card" style={{ padding: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', marginBottom: '6px' }}>
+                      <Users size={16} color="var(--accent-primary)" /> Pending invite
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                      {inviter?.displayName || 'A friend'} invited you to {invite.role === 'participant' ? 'join' : 'support'} "{habit?.name || 'a habit'}".
+                    </div>
+                  </div>
+                );
+              })}
+              {supportPulse.map((group) => (
+                <div key={group.id} className="glass-card" style={{ padding: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', marginBottom: '6px' }}>
+                    <Users size={16} color="var(--accent-primary)" /> {habitsById[group.habit_id]?.name || 'Habit support'}
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '8px' }}>
+                    You are a {group.role} for {profiles[group.invited_by_user_id]?.displayName || 'your friend'}.
+                  </div>
+                  <span style={pillStyle}>
+                    <HeartHandshake size={12} /> habit-level support active
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-muted)', lineHeight: '1.6' }}>
+              Habit-level support invites will appear here when a friend adds you to one specific habit.
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid-auto" style={{ marginTop: '24px' }}>
+        <Card title="Today's Habits">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {habits.slice(0, 3).map((habit) => (
+              <div key={habit.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', gap: '12px' }}>
+                <div>
+                  <div>{habit.name}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{habit.identityLabel}</div>
+                </div>
+                {habit.completedDates.includes(new Date().toISOString().split('T')[0]) ? (
+                  <CheckCircle size={18} color="#10b981" />
+                ) : (
+                  <TrendingUp size={18} color="rgba(255,255,255,0.2)" />
+                )}
+              </div>
+            ))}
+            <Link to="/habits" style={{ textAlign: 'center', fontSize: '0.85rem', color: 'var(--accent-primary)', textDecoration: 'none' }}>Go to Habits →</Link>
+          </div>
+        </Card>
+
+        <Card title="AI Skills">
+          <div style={{ display: 'grid', gap: '12px' }}>
+            <div className="glass-card" style={{ padding: '12px', border: '1px solid var(--border-glass)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <Zap size={16} className="text-secondary" /> 
+                <strong>Habit Architect</strong>
+              </div>
+              <p style={{ fontSize: '0.8rem', opacity: 0.7 }}>Let AI design your routine based on goals.</p>
+            </div>
+            <div className="glass-card" style={{ padding: '12px', border: '1px solid var(--border-glass)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <Zap size={16} className="text-secondary" /> 
+                <strong>Manifestation Mirror</strong>
+              </div>
+              <p style={{ fontSize: '0.8rem', opacity: 0.7 }}>Sentiment reflection on your journal.</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {isEditingGoals && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '400px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
+              <h3 style={{ margin: 0 }}>Adjust Goals</h3>
+              <button onClick={() => setIsEditingGoals(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>x</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Calories</label>
+                <input type="number" name="calories" value={tempGoals.calories} onChange={handleGoalChange} style={{ width: '100%', padding: '12px', background: 'var(--bg-secondary)', border: 'none', borderRadius: '10px', color: 'white' }} />
+              </div>
+              <Button onClick={saveGoals}>Save New Plan</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StatItem = ({ label, val, trend, color }) => (
+  <div style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '16px' }}>
+    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{label.toUpperCase()}</div>
+    <div style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '8px' }}>{val}</div>
+    <TrendSparkline data={trend} color={color} width={120} height={24} />
+  </div>
+);
+
+const quickLinkStyle = {
+  padding: '16px',
+  textAlign: 'center',
+  textDecoration: 'none',
+  color: 'white'
+};
+
+const pillStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '6px 10px',
+  borderRadius: '999px',
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid var(--border-glass)',
+  fontSize: '0.8rem',
+  color: 'var(--text-secondary)'
 };
 
 export default Dashboard;

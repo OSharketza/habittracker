@@ -5,23 +5,55 @@ import Button from '../components/Button';
 
 const ResetPasswordPage = () => {
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isRecovery, setIsRecovery] = useState(false);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        // Check if we have a recovery session
+        const checkSession = async () => {
+            console.log("Checking session on ResetPasswordPage...");
+            console.log("URL Hash:", window.location.hash);
+
+            const { data: { session }, error } = await supabase.auth.getSession();
+
+            if (error) {
+                console.error("Session fetch error:", error.message);
+                setError("Failed to get session: " + error.message);
+            }
+
+            if (session) {
+                console.log("Active session found:", session.user?.email);
+                setIsRecovery(true);
+            } else {
+                console.warn("No active session found on reset page.");
+            }
+        };
+        checkSession();
+    }, []);
 
     const handleReset = async (e) => {
         e.preventDefault();
+
+        if (password !== confirmPassword) {
+            setError("Passwords do not match");
+            return;
+        }
+
         setLoading(true);
         setError('');
 
         try {
             const { error } = await supabase.auth.updateUser({ password });
             if (error) throw error;
-            setMessage('Password updated successfully! Redirecting to login...');
+            setMessage('Password updated successfully! You can now sign in with your new password.');
             setTimeout(() => {
-                navigate('/');
-            }, 2000);
+                supabase.auth.signOut(); // Clear the recovery session
+                navigate('/login');
+            }, 3000);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -84,6 +116,7 @@ const ResetPasswordPage = () => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             minLength={6}
+                            placeholder="Min 6 characters"
                             style={{
                                 width: '100%',
                                 padding: '12px',
@@ -95,6 +128,33 @@ const ResetPasswordPage = () => {
                             }}
                         />
                     </div>
+
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Confirm Password</label>
+                        <input
+                            type="password"
+                            required
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            minLength={6}
+                            placeholder="Repeat new password"
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-glass)',
+                                background: 'rgba(255,255,255,0.05)',
+                                color: 'var(--text-primary)',
+                                outline: 'none'
+                            }}
+                        />
+                    </div>
+
+                    {!isRecovery && !message && (
+                        <p style={{ color: 'var(--accent-warning)', fontSize: '0.85rem' }}>
+                            Warning: No active recovery session detected. This update might fail if you didn't arrive here from a reset email.
+                        </p>
+                    )}
 
                     <Button type="submit" disabled={loading} style={{ width: '100%', background: 'var(--accent-primary)' }}>
                         {loading ? 'Updating...' : 'Update Password'}

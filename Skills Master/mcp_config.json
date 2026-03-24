@@ -1,0 +1,40 @@
+{
+    "mcpServers": {
+        "heyreach": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@heyreach/mcp-server"
+            ],
+            "env": {
+                "HEYREACH_API_KEY": "YOUR_HEY_REACH_API_KEY_HERE"
+            }
+        },
+        "zapier": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-remote",
+                "--url",
+                "https://mcp.zapier.com/api/v1/connect?token=ZmFkY2NkYjEtMDQ1Yy00Yjg4LWFlNTktNzQwYjQyNjRiNDY0Ok1lOHZSV0hHMEEwemdkNXpYeFZjN1ZxS1RFOXNpeUkzbGM1Q0JjWXJJNTg9"
+            ]
+        },
+        "pinecone": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@pinecone-database/mcp"
+            ],
+            "env": {
+                "PINECONE_API_KEY": "pcsk_6Kifsk_GyUwqm4byaFuxUCnDhUNbiDMWqSGRJAjPxPbc6tFzJLXrQnVPhKkrtWdchagFGa"
+            }
+        },
+        "notebooklm": {
+            "command": "notebooklm-mcp",
+            "args": []
+        },
+        "notion": {
+            "serverUrl": "https://mcp.notion.com/sse"
+        }
+    }
+}
